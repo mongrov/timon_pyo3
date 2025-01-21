@@ -14,6 +14,7 @@ lazy_static::lazy_static! {
 #[pyfunction]
 fn init(
     storage_path: String,
+    bucket_interval: u32,
     bucket_endpoint: String,
     bucket_name: String,
     access_key_id: String,
@@ -22,7 +23,7 @@ fn init(
 ) -> PyResult<String> {
     TOKIO_RUNTIME.block_on(async {
         // Initialize Timon storage
-        init_timon(&storage_path, 15).map_err(|e| {
+        init_timon(&storage_path, bucket_interval).map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to initialize Timon: {}", e))
         })?;
 
@@ -134,6 +135,7 @@ fn query_py(db_name: String, sql_query: String) -> PyResult<String> {
 #[pyfunction]
 fn query_bucket_py(
     username: String,
+    db_name: String,
     sql_query: String,
     date_range: HashMap<String, String>,
 ) -> PyResult<String> {
@@ -143,7 +145,7 @@ fn query_bucket_py(
                 .iter()
                 .map(|(k, v)| (k.as_str(), v.as_str()))
                 .collect();
-            query_bucket(&username, &sql_query, converted_date_range)
+            query_bucket(&username, &db_name, &sql_query, converted_date_range)
                 .await
                 .map_err(|e| {
                     pyo3::exceptions::PyRuntimeError::new_err(format!("Query failed: {}", e))
