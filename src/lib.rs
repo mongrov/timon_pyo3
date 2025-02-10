@@ -3,8 +3,9 @@ use pyo3::wrap_pyfunction;
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
 use tsdb_timon::timon_engine::{
-    cloud_sync_parquet, create_database, create_table, delete_database, delete_table, init_bucket,
-    init_timon, insert, list_databases, list_tables, query, query_bucket,
+    cloud_fetch_parquet, cloud_sink_parquet, create_database, create_table, delete_database,
+    delete_table, init_bucket, init_timon, insert, list_databases, list_tables, query,
+    query_bucket, query_group,
 };
 
 lazy_static::lazy_static! {
@@ -103,13 +104,37 @@ fn insert_py(db_name: String, table_name: String, json_data: String) -> PyResult
 }
 
 #[pyfunction]
-fn cloud_sync_parquet_py(
+fn cloud_sink_parquet_py(
     username: String,
     db_name: String,
     table_name: String,
 ) -> PyResult<String> {
     TOKIO_RUNTIME.block_on(async {
-        let result = cloud_sync_parquet(&username, &db_name, &table_name)
+        let result = cloud_sink_parquet(&username, &db_name, &table_name)
+            .await
+            .map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "Failed to Sink Daily Data: {}",
+                    e
+                ))
+            })?;
+        Ok(result.to_string())
+    })
+}
+
+#[pyfunction]
+fn cloud_fetch_parquet_py(
+    username: String,
+    db_name: String,
+    table_name: String,
+    date_range: HashMap<String, String>,
+) -> PyResult<String> {
+    TOKIO_RUNTIME.block_on(async {
+        let converted_date_range: HashMap<&str, &str> = date_range
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        let result = cloud_fetch_parquet(&username, &db_name, &table_name, converted_date_range)
             .await
             .map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!(
@@ -128,6 +153,19 @@ fn query_py(db_name: String, sql_query: String) -> PyResult<String> {
             query(&db_name, &sql_query).await.map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!("Query failed: {}", e))
             })
+        })
+        .map(|value| value.to_string())
+}
+
+#[pyfunction]
+fn query_group_py(username: String, db_name: String, sql_query: String) -> PyResult<String> {
+    TOKIO_RUNTIME
+        .block_on(async {
+            query_group(&username, &db_name, &sql_query)
+                .await
+                .map_err(|e| {
+                    pyo3::exceptions::PyRuntimeError::new_err(format!("Query failed: {}", e))
+                })
         })
         .map(|value| value.to_string())
 }
@@ -165,8 +203,10 @@ fn timon_pyo3(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(delete_database_py, m)?)?;
     m.add_function(wrap_pyfunction!(delete_table_py, m)?)?;
     m.add_function(wrap_pyfunction!(insert_py, m)?)?;
-    m.add_function(wrap_pyfunction!(cloud_sync_parquet_py, m)?)?;
+    m.add_function(wrap_pyfunction!(cloud_sink_parquet_py, m)?)?;
+    m.add_function(wrap_pyfunction!(cloud_fetch_parquet_py, m)?)?;
     m.add_function(wrap_pyfunction!(query_py, m)?)?;
+    m.add_function(wrap_pyfunction!(query_group_py, m)?)?;
     m.add_function(wrap_pyfunction!(query_bucket_py, m)?)?;
     Ok(())
 }
