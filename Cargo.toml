@@ -1,6 +1,6 @@
 [package]
 name = "timon_pyo3"
-version = "1.0.25"
+version = "1.0.30"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,4 +12,5 @@ crate-type = ["cdylib", "lib"]
 pyo3 = "0.23.4"
 tokio = { version = "1.43.0", features = ["full"] }
 lazy_static = { version = "1.5.0"}
-tsdb_timon = { version = "1.0.25" }
+pyo3-arrow = "0.7.2"
+tsdb_timon = { version = "1.0.45" }
