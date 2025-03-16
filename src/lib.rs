@@ -1,5 +1,7 @@
+use arrow_array::{RecordBatch, RecordBatchIterator};
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
+use pyo3_arrow::PyRecordBatchReader;
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
 use tsdb_timon::timon_engine::{
@@ -166,12 +168,9 @@ fn query_group_py(db_name: String, sql_query: String, username: String) -> PyRes
         .map(|value| value.to_string())
 }
 
-use pyo3::types::PyList;
-use pyo3_arrow::PyRecordBatch;
-
 #[pyfunction]
-fn query_df_py(py: Python, db_name: String, sql_query: String) -> PyResult<PyObject> {
-    let rt = Runtime::new().map_err(|e| {
+fn query_df_py(db_name: String, sql_query: String) -> PyResult<PyRecordBatchReader> {
+    let rt = tokio::runtime::Runtime::new().map_err(|e| {
         pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to create Tokio runtime: {}", e))
     })?;
 
@@ -179,19 +178,27 @@ fn query_df_py(py: Python, db_name: String, sql_query: String) -> PyResult<PyObj
 
     match result {
         Ok(df) => {
-            let batches = rt.block_on(df.collect()).map_err(|e| {
+            let batches: Vec<RecordBatch> = rt.block_on(df.collect()).map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!(
                     "Failed to collect DataFrame: {}",
                     e
                 ))
             })?;
 
-            let py_batches: Vec<PyRecordBatch> =
-                batches.into_iter().map(PyRecordBatch::new).collect();
+            if batches.is_empty() {
+                return Err(pyo3::exceptions::PyValueError::new_err("No records found"));
+            }
 
-            let py_list: Py<PyAny> = PyList::new(py, py_batches)?.into_py(py);
+            // Get schema from first batch
+            let schema = batches[0].schema();
 
-            Ok(py_list)
+            // Convert Vec<RecordBatch> into PyRecordBatchReader (zero-copy)
+            let reader = PyRecordBatchReader::new(Box::new(RecordBatchIterator::new(
+                batches.into_iter().map(Ok),
+                schema,
+            )));
+
+            Ok(reader)
         }
         Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
             "Query failed: {}",

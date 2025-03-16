@@ -3152,6 +3152,7 @@ dependencies = [
 name = "timon_pyo3"
 version = "1.0.30"
 dependencies = [
+ "arrow-array",
  "lazy_static",
  "pyo3",
  "pyo3-arrow",
