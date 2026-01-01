@@ -6,6 +6,7 @@ build-backend = "maturin"
 name = "timon_pyo3"
 requires-python = ">=3.8"
 description = "Efficient local storage and Amazon S3-compatible data synchronization for time-series data,leveraging Parquet for storage and DataFusion for querying, all wrapped in a simple and intuitive API"
+readme = "README.md"
 authors = [{ name = "Ahmed Boutaraa", email = "ahmed@mongrov.com" }]
 license = { text = "MIT" }
 classifiers = [
@@ -13,6 +14,6 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dynamic = ["version"]
+version = "1.1.1"
 [tool.maturin]
 features = ["pyo3/extension-module"]

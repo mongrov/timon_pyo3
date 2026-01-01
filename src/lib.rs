@@ -148,7 +148,7 @@ fn cloud_fetch_parquet_py(
 fn query_py(db_name: String, sql_query: String) -> PyResult<String> {
     TOKIO_RUNTIME
         .block_on(async {
-            query(&db_name, &sql_query, None).await.map_err(|e| {
+            query(&db_name, &sql_query, None, None).await.map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!("Query failed: {}", e))
             })
         })
@@ -159,7 +159,7 @@ fn query_py(db_name: String, sql_query: String) -> PyResult<String> {
 fn query_group_py(db_name: String, sql_query: String, username: String) -> PyResult<String> {
     TOKIO_RUNTIME
         .block_on(async {
-            query(&db_name, &sql_query, Some(&username))
+            query(&db_name, &sql_query, Some(&username), None)
                 .await
                 .map_err(|e| {
                     pyo3::exceptions::PyRuntimeError::new_err(format!("Query failed: {}", e))
@@ -174,7 +174,7 @@ fn query_df_py(db_name: String, sql_query: String) -> PyResult<PyRecordBatchRead
         pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to create Tokio runtime: {}", e))
     })?;
 
-    let result = rt.block_on(async { query_df(&db_name, &sql_query, None).await });
+    let result = rt.block_on(async { query_df(&db_name, &sql_query, None, None).await });
 
     match result {
         Ok(df) => {
